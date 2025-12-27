@@ -139,14 +139,14 @@ export default function SalesPage() {
         </div>
         
         {/* MENU ITEMS SCROLL AREA */}
-        <ScrollArea className="flex-1 px-4 lg:px-6">
+        <ScrollArea className="flex-1 max-h-full pb-32 px-4 lg:px-6">
           {/* FIX GRID HERE: 
               - sm:grid-cols-2 (Tablets)
               - lg:grid-cols-3 (Small Laptops)
               - xl:grid-cols-4 (Large Screens) 
               This prevents the cards from being too wide or too squashed.
           */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 pb-40 ">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 pb-40  ">
             {filteredItems.map(item => (
               <Card 
                 key={item.id} 
@@ -200,7 +200,7 @@ export default function SalesPage() {
       <>
         {isMobileCartOpen && (
           <div 
-            className="fixed inset-0 bg-black/20 z-20 lg:hidden backdrop-blur-[1px]" 
+            className="relative inset-0 bg-black/20 z-20 lg:hidden backdrop-blur-[1px]" 
             onClick={() => setIsMobileCartOpen(false)}
           />
         )}
@@ -229,7 +229,7 @@ export default function SalesPage() {
              flex-1 overflow-hidden transition-all duration-300
              ${isMobileCartOpen ? 'max-h-[60vh] opacity-100' : 'max-h-0 opacity-0 lg:max-h-full lg:opacity-100'}
           `}>
-             <ScrollArea className="h-full p-4 lg:p-5">
+             <ScrollArea className="h-fit p-4 lg:p-5">
               {cart.length === 0 ? (
                 <div className="h-40 flex flex-col items-center justify-center text-muted-foreground text-sm border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/50 m-2">
                   <ShoppingBag className="w-10 h-10 mb-2 opacity-20" />
