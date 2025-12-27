@@ -60,7 +60,7 @@ export default function LoginPage() {
         if (profile?.role === "admin") {
           router.push("/admin/dashboard");
         } else if (profile?.role === "staff") {
-          router.push("/staff/input");
+          router.push("/staff/sales");
         } else {
           toast.error("Akun tidak memiliki role yang valid.");
         }
