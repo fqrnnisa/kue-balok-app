@@ -31,29 +31,33 @@ export default function ProductsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Fetch Produk
+      // 1. Fetch Produk (HANYA YANG AKTIF)
       const { data: prodData } = await supabase
         .from('products')
         .select('*')
+        .eq('is_active', true)
         .order('name');
       if (prodData) setProducts(prodData);
 
-      // 2. Fetch Menu Jualan
+      // 2. Fetch Menu Jualan (Filter Produk Aktif)
+      // Gunakan !inner agar data selling_units HANYA muncul jika products.is_active = true
       const { data: sellData } = await supabase
         .from('selling_units')
-        .select(`*, products(name)`)
+        .select(`*, products!inner(name)`) 
+        .eq('products.is_active', true) // Filter Active Products Only
         .order('price');
       if (sellData) setSellingUnits(sellData);
 
-      // 3. Fetch Resep & Grouping
+      // 3. Fetch Resep (Filter Produk Aktif)
       const { data: recipeData } = await supabase
         .from('product_recipes')
         .select(`
           id,
           quantity_per_batch,
           ingredients (name, unit),
-          products (name)
+          products!inner (name)
         `)
+        .eq('products.is_active', true) // Filter Active Products Only
         .order('product_id');
 
       if (recipeData) {
@@ -98,7 +102,7 @@ export default function ProductsPage() {
               <Package className="h-5 w-5 text-orange-500" />
               <CardTitle>Data Produk & Target</CardTitle>
             </div>
-            <CardDescription>Stok gudang barang jadi & target hasil produksi.</CardDescription>
+            <CardDescription>Stok gudang barang jadi & target hasil produksi (Active Only).</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -131,7 +135,7 @@ export default function ProductsPage() {
               <ShoppingCart className="h-5 w-5 text-green-600" />
               <CardTitle>Menu Kasir</CardTitle>
             </div>
-            <CardDescription>Harga jual yang tampil di halaman kasir.</CardDescription>
+            <CardDescription>Harga jual yang tampil di halaman kasir (Active Only).</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -168,7 +172,7 @@ export default function ProductsPage() {
             <CardTitle>Daftar Resep Produk</CardTitle>
           </div>
           <CardDescription>
-            Klik pada baris produk untuk melihat detail komposisi bahan baku.
+            Klik pada baris produk untuk melihat detail komposisi bahan baku (Active Only).
           </CardDescription>
         </CardHeader>
         <CardContent>

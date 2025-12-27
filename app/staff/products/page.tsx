@@ -7,6 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+// 1. Import Alert Dialog Components
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Plus, Search, Archive, Package } from "lucide-react";
 
 export default function ProductsManagePage() {
@@ -19,7 +31,6 @@ export default function ProductsManagePage() {
   const [loading, setLoading] = useState(false);
 
   const fetch = async () => {
-    // HANYA TAMPILKAN PRODUK YANG AKTIF (is_active = true)
     let q = supabase.from('products').select('*').eq('is_active', true).order('name');
     if(search) q = q.ilike('name', `%${search}%`);
     
@@ -33,7 +44,6 @@ export default function ProductsManagePage() {
     if (!newName || !newPrice) return toast.error("Isi nama dan harga");
     setLoading(true);
     try {
-      // 1. Buat Produk (Default Active)
       const { data: prod, error: pe } = await supabase
         .from('products')
         .insert({ name: newName, stock_qty: 0, is_active: true })
@@ -41,7 +51,6 @@ export default function ProductsManagePage() {
         .single();
       if(pe) throw pe;
 
-      // 2. Buat Satuan Jual Default (Pcs)
       const { error: se } = await supabase
         .from('selling_units')
         .insert({ product_id: prod.id, name: newName, price: parseFloat(newPrice), qty_content: 1 });
@@ -56,17 +65,15 @@ export default function ProductsManagePage() {
     }
   };
 
+  // 2. Remove 'confirm()' from handler, logic only
   const handleArchive = async (id: string) => {
-    if(!confirm("Yakin ingin mengarsipkan produk ini? Produk tidak akan muncul lagi di list baru, tapi riwayat lama tetap aman.")) return;
-    
-    // SOFT DELETE: Update is_active menjadi false
     const { error } = await supabase.from('products').update({ is_active: false }).eq('id', id);
     
     if(error) {
-      toast.error("Gagal mengarsipkan");
+      toast.error("Gagal menghapus");
       console.error(error);
     } else { 
-      toast.success("Produk diarsipkan"); 
+      toast.success("Produk dihapus"); 
       fetch(); 
     }
   };
@@ -116,15 +123,38 @@ export default function ProductsManagePage() {
                 </TableCell>
                 <TableCell className="text-right font-mono">{p.stock_qty}</TableCell>
                 <TableCell>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={()=>handleArchive(p.id)} 
-                    className="text-orange-500 hover:text-orange-600 hover:bg-orange-50"
-                    title="Arsipkan (Hapus dari list)"
-                  >
-                    <Archive className="w-4 h-4"/>
-                  </Button>
+                  {/* 3. Implement AlertDialog Logic */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                        title="Dekete Product"
+                      >
+                        <Archive className="w-4 h-4"/>
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Produk?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Apakah Anda yakin ingin menghapus <b>"{p.name}"</b>? 
+                          Produk ini tidak akan muncul di menu kasir, namun riwayat transaksi lama tetap tersimpan.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleArchive(p.id)}
+                          className="bg-orange-600 hover:bg-orange-700 text-white"
+                        >
+                          Ya, Hapus
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  {/* End AlertDialog */}
                 </TableCell>
               </TableRow>
             ))}

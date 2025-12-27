@@ -7,6 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+// 1. Import Alert Dialog Components
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Plus, Search, Archive, AlertCircle } from "lucide-react"; 
 
 export default function IngredientsManagePage() {
@@ -54,18 +66,18 @@ export default function IngredientsManagePage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if(!confirm(`Arsipkan bahan "${name}"? Data akan disembunyikan dari list.`)) return;
-
+  // 2. Simplified Delete Handler (Removed window.confirm)
+  const handleDelete = async (id: string) => {
+    // No need for confirm() here, the UI handles it
     const { error } = await supabase
       .from('ingredients')
       .update({ is_active: false })
       .eq('id', id);
     
     if(error) {
-      toast.error("Gagal mengarsipkan: " + error.message);
+      toast.error("Gagal Menghapus: " + error.message);
     } else { 
-      toast.success("Bahan berhasil diarsipkan"); 
+      toast.success("Bahan berhasil dihapus"); 
       fetch(); 
     }
   };
@@ -84,7 +96,6 @@ export default function IngredientsManagePage() {
           <DialogContent>
             <DialogHeader><DialogTitle>Tambah Bahan</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
-              {/* Input Nama */}
               <div className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground">Nama Bahan</span>
                 <Input 
@@ -94,7 +105,6 @@ export default function IngredientsManagePage() {
                 />
               </div>
 
-              {/* PERBAIKAN DI SINI: Gunakan Grid agar input sejajar rapi */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <span className="text-xs font-medium text-muted-foreground">Satuan</span>
@@ -123,7 +133,6 @@ export default function IngredientsManagePage() {
         </Dialog>
       </div>
       
-      {/* Search Bar & Table (Tidak berubah) */}
       <div className="flex items-center gap-2 max-w-sm">
         <Search className="w-4 h-4 text-muted-foreground"/>
         <Input 
@@ -161,15 +170,35 @@ export default function IngredientsManagePage() {
                     {i.stock_qty}
                   </TableCell>
                   <TableCell>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => handleDelete(i.id, i.name)} 
-                      className="text-orange-500 hover:text-orange-600 hover:bg-orange-50"
-                      title="Arsipkan"
-                    >
-                      <Archive className="w-4 h-4"/>
-                    </Button>
+                    {/* 3. Implemented AlertDialog Logic */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                          title="Delete Ingredient"
+                        >
+                          <Archive className="w-4 h-4"/>
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Bahan?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Apakah Anda yakin ingin delete bahan <b>"{i.name}"</b>? 
+                            Data ini akan disembunyikan dari daftar tapi tidak terhapus permanen dari database.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Batal</AlertDialogCancel>
+                          {/* Execute delete on confirmation */}
+                          <AlertDialogAction onClick={() => handleDelete(i.id)} className="bg-orange-600 hover:bg-orange-700">
+                            Ya, Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               );

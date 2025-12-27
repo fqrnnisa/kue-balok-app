@@ -8,6 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Trash2, Plus, Save, Info } from "lucide-react";
 
 export default function RecipeManagePage() {
@@ -20,15 +31,18 @@ export default function RecipeManagePage() {
   
   // State Selection & Form
   const [selectedProd, setSelectedProd] = useState<string | null>(null);
-  const [expectedQty, setExpectedQty] = useState<string>(""); // State untuk Target Produksi
+  const [expectedQty, setExpectedQty] = useState<string>(""); 
   const [form, setForm] = useState({ ingId: "", qty: "" });
   const [loading, setLoading] = useState(false);
 
-  // 1. Load Initial Data (Products & Ingredients)
+  // 1. Load Initial Data (Updated to filter active products)
   useEffect(() => {
     const init = async () => {
       const [p, i] = await Promise.all([
-        supabase.from('products').select('*').order('name'),
+        // FIX: Added .eq('is_active', true) to filter only active products
+        supabase.from('products').select('*').eq('is_active', true).order('name'),
+        
+        // Optional: If ingredients also have is_active, you can add .eq('is_active', true) here too
         supabase.from('ingredients').select('*').order('name')
       ]);
       if (p.data) setProducts(p.data);
@@ -37,20 +51,18 @@ export default function RecipeManagePage() {
     init();
   }, []);
 
-  // 2. Load Recipe & Product Settings when Product Changes
+  // 2. Load Recipe & Product Settings
   useEffect(() => {
     if (!selectedProd) return;
 
     const fetchData = async () => {
       setLoading(true);
       
-      // Ambil komposisi resep
       const recipeReq = supabase
         .from('product_recipes')
         .select('id, quantity_per_batch, ingredients(id, name, unit)')
         .eq('product_id', selectedProd);
 
-      // Ambil setting produk (Target Produksi)
       const productReq = supabase
         .from('products')
         .select('product_result_expected')
@@ -61,7 +73,6 @@ export default function RecipeManagePage() {
 
       if (resRecipe.data) setRecipe(resRecipe.data);
       
-      // Set nilai input target produksi dari database
       if (resProduct.data) {
         setExpectedQty(resProduct.data.product_result_expected?.toString() || "");
       } else {
@@ -74,7 +85,7 @@ export default function RecipeManagePage() {
     fetchData();
   }, [selectedProd]);
 
-  // 3. Add Ingredient to Recipe
+  // 3. Add Ingredient
   const addIng = async () => {
     if (!selectedProd || !form.ingId || !form.qty) return;
     
@@ -87,7 +98,6 @@ export default function RecipeManagePage() {
     if (!error) {
       toast.success("Bahan ditambahkan");
       setForm({ ingId: "", qty: "" });
-      // Refresh list resep
       const { data } = await supabase
         .from('product_recipes')
         .select('id, quantity_per_batch, ingredients(id, name, unit)')
@@ -107,7 +117,7 @@ export default function RecipeManagePage() {
     }
   };
 
-  // 5. Save Product Target Settings (Fungsi Baru)
+  // 5. Save Settings
   const saveProductSettings = async () => {
     if (!selectedProd) return;
     
@@ -120,7 +130,7 @@ export default function RecipeManagePage() {
       toast.success("Target produksi berhasil disimpan!");
     } else {
       console.error(error);
-      toast.error("Gagal menyimpan target. Pastikan kolom 'product_result_expected' ada di tabel products.");
+      toast.error("Gagal menyimpan target.");
     }
   };
 
@@ -162,7 +172,7 @@ export default function RecipeManagePage() {
         {selectedProd && (
           <div className="md:col-span-8 space-y-6">
             
-            {/* Bagian 1: Target Produksi (Yang Anda minta) */}
+            {/* Bagian 1: Target Produksi */}
             <Card className="border-blue-100 bg-blue-50/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -174,8 +184,6 @@ export default function RecipeManagePage() {
                 <div className="flex flex-col sm:flex-row gap-4 items-end sm:items-center justify-between">
                   <div className="text-sm text-muted-foreground flex-1">
                     Berapa pcs/pack produk jadi yang dihasilkan dari <strong>1x adonan</strong> (batch) resep di bawah ini?
-                    <br/>
-                    <span className="text-xs opacity-70">Angka ini akan digunakan otomatis saat input log produksi.</span>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Input 
@@ -250,14 +258,34 @@ export default function RecipeManagePage() {
                             {r.quantity_per_batch} <span className="text-muted-foreground text-xs">{r.ingredients.unit}</span>
                           </TableCell>
                           <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => removeIng(r.id)} 
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4"/>
-                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4"/>
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Hapus Bahan?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Apakah Anda yakin ingin menghapus <strong>{r.ingredients.name}</strong> dari resep ini?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => removeIng(r.id)}
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                  >
+                                    Hapus
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </TableCell>
                         </TableRow>
                       ))}

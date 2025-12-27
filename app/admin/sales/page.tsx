@@ -10,14 +10,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Banknote, ShoppingCart, CalendarDays, Archive, Filter } from "lucide-react";
-import { DateRangeFilter } from "@/components/sales/date-range-filters"; // Import created component
-import { PaginationControls } from "@/components/sales/paggination-controls"; // Import created component
+import { Banknote, ShoppingCart, Archive } from "lucide-react";
+import { DateRangeFilter } from "@/components/sales/date-range-filters";
+import { PaginationControls } from "@/components/sales/paggination-controls";
+import { ExportButton } from "@/components/sales/export-button"; 
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Type definition for URL params (Next.js 15+ convention, works in 14 too)
 type SearchParams = { [key: string]: string | string[] | undefined };
 
 export default async function AdminSalesPage({
@@ -27,197 +27,197 @@ export default async function AdminSalesPage({
 }) {
   const supabase = await createClient();
 
-  // 1. Parse Parameters
-  const params = await searchParams; // Await required in newer Next.js versions
+  // --- 1. PARSE PARAMETERS ---
+  const params = await searchParams;
   const page = Number(params?.page) || 1;
   const startDate = typeof params?.startDate === "string" ? params.startDate : null;
   const endDate = typeof params?.endDate === "string" ? params.endDate : null;
-  
+
   const ITEMS_PER_PAGE = 10;
   const from = (page - 1) * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
 
-  // 2. Base Query Builder (Helper to apply date filters consistently)
+  // --- 2. QUERIES ---
   const applyDateFilters = (query: any) => {
     if (startDate) query = query.gte("created_at", `${startDate}T00:00:00`);
     if (endDate) query = query.lte("created_at", `${endDate}T23:59:59`);
     return query;
   };
 
-  // 3. QUERY A: Fetch Summary Stats (Full Range, Unpaginated)
-  // We only fetch needed columns to keep it light
-  let statsQuery = supabase
-    .from("sales_logs")
-    .select(`
-      qty_sold,
-      selling_units (price)
-    `);
-  
+  // Query A: Stats (Summary)
+  let statsQuery = supabase.from("sales_logs").select(`qty_sold, selling_units (price)`);
   statsQuery = applyDateFilters(statsQuery);
-  
-  // 4. QUERY B: Fetch Table Data (Paginated)
+
+  // Query B: Table Data (Paginated)
   let tableQuery = supabase
     .from("sales_logs")
-    .select(`
+    .select(
+      `
       id,
       created_at,
       qty_sold,
-      selling_units (
-        name,
-        price,
-        products (name)
-      ),
-      profiles (
-        full_name,
-        email
-      )
-    `, { count: "exact" }); // Get total count for pagination
+      selling_units (name, price, products (name)),
+      profiles (full_name)
+    `,
+      { count: "exact" }
+    );
 
   tableQuery = applyDateFilters(tableQuery);
-  tableQuery = tableQuery
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  tableQuery = tableQuery.order("created_at", { ascending: false }).range(from, to);
 
-  // Execute both queries in parallel for performance
+  // Execute in parallel
   const [statsResult, tableResult] = await Promise.all([statsQuery, tableQuery]);
 
-  const { data: allStatsData, error: statsError } = statsResult;
-  const { data: sales, count, error: tableError } = tableResult;
+  const { data: allStatsData } = statsResult;
+  const { data: sales, count, error } = tableResult;
 
-  if (tableError || statsError) {
-    console.error("Supabase Error:", tableError || statsError);
-    return <div className="p-8 text-red-500">Gagal mengambil data database.</div>;
-  }
+  if (error) return <div className="p-4 text-red-500">Error loading data.</div>;
 
-  // 5. Calculate Summaries (using the Full Range data)
+  // --- 3. CALCULATIONS ---
+  const totalRevenue =
+    allStatsData?.reduce((acc, curr: any) => {
+      return acc + curr.qty_sold * (curr.selling_units?.price || 0);
+    }, 0) || 0;
   const totalTrx = allStatsData?.length || 0;
-  
-  const totalRevenue = allStatsData?.reduce((acc, curr: any) => {
-    const price = curr.selling_units?.price || 0;
-    return acc + (curr.qty_sold * price);
-  }, 0) || 0;
-  
-  const totalItems = allStatsData?.reduce((acc, curr: any) => acc + (curr.qty_sold || 0), 0) || 0;
+  const totalItems =
+    allStatsData?.reduce((acc, curr: any) => acc + (curr.qty_sold || 0), 0) || 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div className="space-y-6 pb-24 w-full max-w-[100vw]">
+      
+      {/* 1. HEADER & ACTIONS */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Laporan Penjualan</h1>
-          <p className="text-muted-foreground">
-            Monitoring transaksi {startDate ? `dari ${startDate}` : ""} {endDate ? `sampai ${endDate}` : ""}.
+          <h1 className="text-2xl font-bold tracking-tight">Laporan Penjualan</h1>
+          <p className="text-sm text-muted-foreground">
+            {startDate ? `${startDate}` : "Semua Periode"} 
+            {endDate ? ` — ${endDate}` : ""}
           </p>
         </div>
         
-        {/* Insert Filter Component */}
-        <DateRangeFilter />
+        {/* Action Group: Filter & Export 
+            FIX: 'flex-row' forces them to be side-by-side (inline). 
+            'items-center' aligns them vertically.
+        */}
+        <div className="flex flex-row items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
+          <DateRangeFilter />
+          <ExportButton startDate={startDate} endDate={endDate} />
+        </div>
       </div>
 
-      {/* Kartu Ringkasan (Values reflect the filtered date range) */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-emerald-50 border-emerald-100 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-900">Total Pendapatan</CardTitle>
+      {/* 2. STATS CARDS */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card className="bg-emerald-50 border-emerald-100">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
+            <CardTitle className="text-sm font-medium text-emerald-900">Total Omzet</CardTitle>
             <Banknote className="h-4 w-4 text-emerald-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-700">Rp {totalRevenue.toLocaleString('id-ID')}</div>
-            <p className="text-xs text-emerald-600/80 mt-1">
-               {startDate || endDate ? "Omzet periode terpilih" : "Total omzet keseluruhan"}
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold text-emerald-700">
+              Rp {(totalRevenue / 1000).toFixed(0)}k
+            </div>
+            <p className="text-xs text-emerald-600/80">
+              Real: Rp {totalRevenue.toLocaleString("id-ID")}
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Transaksi</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
+            <CardTitle className="text-sm font-medium">Transaksi</CardTitle>
             <ShoppingCart className="h-4 w-4 text-blue-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0">
             <div className="text-2xl font-bold">{totalTrx}</div>
-            <p className="text-xs text-muted-foreground mt-1">Kali checkout</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Item Terjual</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
+            <CardTitle className="text-sm font-medium">Terjual</CardTitle>
             <Archive className="h-4 w-4 text-orange-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalItems} Unit</div>
-            <p className="text-xs text-muted-foreground mt-1">Total produk keluar</p>
+          <CardContent className="p-4 pt-0">
+            <div className="text-2xl font-bold">{totalItems}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabel Detail */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Riwayat Transaksi</CardTitle>
-          <div className="text-sm text-muted-foreground">
-             Menampilkan {sales?.length} dari {count} data
+      {/* 3. TABLE SECTION */}
+      <Card className="w-full overflow-hidden">
+        <CardHeader className="px-4 py-4 border-b flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Daftar Transaksi</CardTitle>
+          <div className="text-xs text-muted-foreground">
+             {count} data ditemukan
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
+        
+        <div className="w-full overflow-x-auto">
+          <Table className="w-full">
             <TableHeader>
               <TableRow>
-                <TableHead>Waktu</TableHead>
-                <TableHead>Menu Jual</TableHead>
-                <TableHead>Produk Asli</TableHead>
-                <TableHead>Kasir</TableHead>
-                <TableHead className="text-center">Qty</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="w-[1%] whitespace-nowrap pl-4">Waktu</TableHead>
+                <TableHead className="w-full">Menu</TableHead>
+                <TableHead className="hidden md:table-cell whitespace-nowrap">Kasir</TableHead>
+                <TableHead className="text-center w-[1%] whitespace-nowrap">Qty</TableHead>
+                <TableHead className="text-right w-[1%] whitespace-nowrap pr-4">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sales?.map((trx: any) => (
-                <TableRow key={trx.id}>
-                  <TableCell className="text-sm">
-                    <div className="font-medium">{format(new Date(trx.created_at), "d MMM yyyy", { locale: id })}</div>
-                    <div className="text-xs text-muted-foreground">{format(new Date(trx.created_at), "HH:mm 'WIB'", { locale: id })}</div>
-                  </TableCell>
+                <TableRow key={trx.id} className="border-b hover:bg-slate-50">
                   
-                  <TableCell>
-                    <div className="font-medium">{trx.selling_units?.name || <span className="text-red-500 italic">Menu Dihapus</span>}</div>
+                  {/* Time */}
+                  <TableCell className="pl-4 py-3 align-top whitespace-nowrap">
+                    <div className="font-medium text-sm">
+                      {format(new Date(trx.created_at), "d MMM", { locale: id })}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      @ {trx.selling_units?.price ? `Rp ${trx.selling_units.price.toLocaleString('id-ID')}` : '-'}
+                      {format(new Date(trx.created_at), "HH:mm", { locale: id })}
                     </div>
                   </TableCell>
-                  
-                  <TableCell className="text-sm text-muted-foreground">
-                    {trx.selling_units?.products?.name || "-"}
+
+                  {/* Menu */}
+                  <TableCell className="py-3 align-top">
+                    <div className="text-sm font-medium min-w-[120px]">
+                      {trx.selling_units?.name || "Deleted"}
+                    </div>
+                    <div className="md:hidden text-[10px] text-muted-foreground mt-0.5">
+                      {trx.profiles?.full_name?.split(" ")[0]}
+                    </div>
                   </TableCell>
-                  
-                  <TableCell className="text-sm">
-                    {trx.profiles?.full_name || "Unknown"}
+
+                  {/* Kasir (Desktop) */}
+                  <TableCell className="hidden md:table-cell py-3 align-top whitespace-nowrap text-sm">
+                    {trx.profiles?.full_name}
                   </TableCell>
-                  
-                  <TableCell className="text-center font-bold">
+
+                  {/* Qty */}
+                  <TableCell className="text-center py-3 align-top font-bold text-sm whitespace-nowrap">
                     {trx.qty_sold}
                   </TableCell>
-                  
-                  <TableCell className="text-right font-bold text-emerald-700">
-                    Rp {((trx.qty_sold || 0) * (trx.selling_units?.price || 0)).toLocaleString('id-ID')}
+
+                  {/* Total */}
+                  <TableCell className="text-right pr-4 py-3 align-top font-bold text-emerald-700 whitespace-nowrap text-sm">
+                    Rp {((trx.qty_sold || 0) * (trx.selling_units?.price || 0)).toLocaleString("id-ID")}
                   </TableCell>
                 </TableRow>
               ))}
 
               {sales?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Tidak ada data penjualan pada periode ini.
+                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                    Belum ada data penjualan.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </div>
 
-          {/* Insert Pagination Controls */}
+        <div className="p-4 border-t">
           <PaginationControls totalCount={count || 0} pageSize={ITEMS_PER_PAGE} />
-          
-        </CardContent>
+        </div>
       </Card>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { createUser, updateUser } from "./actions";
 import {
@@ -42,37 +42,73 @@ type UserProfile = {
 
 export function UserDialog({ user }: { user?: UserProfile | null }) {
   const [open, setOpen] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false); // State untuk popup konfirmasi
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null); // Ref untuk mengakses data form
+  
+  // 1. State untuk menampung input agar bisa dideteksi perubahannya
+  const [formData, setFormData] = useState({
+    fullName: "",
+    role: "staff",
+    password: "",
+  });
 
   const isEdit = !!user;
 
-  // 1. Function yang dijalankan saat tombol "Simpan/Buat" diklik
+  // 2. Reset form saat dialog dibuka atau user berubah
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        fullName: user?.full_name || "",
+        role: user?.role || "staff",
+        password: "", // Password selalu kosong saat awal edit
+      });
+    }
+  }, [open, user]);
+
+  // 3. Logika pengecekan perubahan
+  // Tombol simpan aktif jika:
+  // - Mode Create (bukan edit)
+  // - Ada password yang diketik
+  // - Nama berbeda dari data asli
+  // - Role berbeda dari data asli
+  const hasChanges = !isEdit || 
+    formData.password.length > 0 ||
+    formData.fullName !== user?.full_name ||
+    formData.role !== user?.role;
+
   const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Double check logic (opsional, untuk keamanan)
+    if (isEdit && !hasChanges) {
+      toast.info("Tidak ada perubahan data yang perlu disimpan.");
+      return;
+    }
+
     if (isEdit) {
-      // Jika Edit, munculkan Konfirmasi dulu
       setShowConfirm(true);
     } else {
-      // Jika Tambah Baru, langsung gas
       executeSubmit();
     }
   };
 
-  // 2. Eksekusi submit sebenarnya ke Server
   const executeSubmit = async () => {
-    if (!formRef.current) return;
     setLoading(true);
-    setShowConfirm(false); // Tutup konfirmasi jika ada
+    setShowConfirm(false);
 
-    const formData = new FormData(formRef.current);
+    // Kita buat FormData manual dari state karena sekarang pakai Controlled Input
+    const payload = new FormData();
+    payload.append("email", user?.email || (document.getElementById("email") as HTMLInputElement)?.value || "");
+    payload.append("fullName", formData.fullName);
+    payload.append("role", formData.role);
+    payload.append("password", formData.password);
+
     let result;
 
     if (isEdit && user) {
-      result = await updateUser(user.id, formData);
+      result = await updateUser(user.id, payload);
     } else {
-      result = await createUser(formData);
+      result = await createUser(payload);
     }
 
     setLoading(false);
@@ -104,8 +140,7 @@ export function UserDialog({ user }: { user?: UserProfile | null }) {
             <DialogTitle>{isEdit ? "Edit Pengguna" : "Tambah Staff Baru"}</DialogTitle>
           </DialogHeader>
           
-          <form ref={formRef} onSubmit={handlePreSubmit} className="grid gap-4 py-4">
-            {/* Form Input sama seperti sebelumnya */}
+          <form onSubmit={handlePreSubmit} className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -114,7 +149,7 @@ export function UserDialog({ user }: { user?: UserProfile | null }) {
                 type="email"
                 defaultValue={user?.email || ""}
                 required
-                disabled={isEdit}
+                disabled={isEdit} // Email biasanya tidak boleh diedit untuk menjaga konsistensi ID
                 placeholder="staff@kuebalok.com"
               />
             </div>
@@ -124,7 +159,9 @@ export function UserDialog({ user }: { user?: UserProfile | null }) {
               <Input
                 id="fullName"
                 name="fullName"
-                defaultValue={user?.full_name || ""}
+                // Ganti defaultValue dengan value & onChange
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 required
                 placeholder="Ujang Saepudin"
               />
@@ -138,6 +175,9 @@ export function UserDialog({ user }: { user?: UserProfile | null }) {
                 id="password"
                 name="password"
                 type="password"
+                // Ganti defaultValue dengan value & onChange
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required={!isEdit}
                 placeholder="******"
               />
@@ -145,7 +185,11 @@ export function UserDialog({ user }: { user?: UserProfile | null }) {
 
             <div className="grid gap-2">
               <Label htmlFor="role">Role / Jabatan</Label>
-              <Select name="role" defaultValue={user?.role || "staff"}>
+              <Select 
+                name="role" 
+                value={formData.role} 
+                onValueChange={(val) => setFormData({ ...formData, role: val })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih role" />
                 </SelectTrigger>
@@ -157,7 +201,8 @@ export function UserDialog({ user }: { user?: UserProfile | null }) {
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={loading}>
+              {/* Button didisabled jika loading ATAU (sedang edit TAPI tidak ada perubahan) */}
+              <Button type="submit" disabled={loading || (isEdit && !hasChanges)}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEdit ? "Simpan Perubahan" : "Buat User"}
               </Button>
@@ -166,13 +211,12 @@ export function UserDialog({ user }: { user?: UserProfile | null }) {
         </DialogContent>
       </Dialog>
 
-      {/* ALERT DIALOG KHUSUS EDIT (Nested) */}
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Simpan Perubahan?</AlertDialogTitle>
             <AlertDialogDescription>
-              Pastikan data <strong>{user?.full_name}</strong> sudah benar sebelum disimpan.
+              Pastikan data <strong>{formData.fullName}</strong> sudah benar sebelum disimpan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
