@@ -45,10 +45,15 @@ export default async function AdminSalesPage({
   };
 
   // Query A: Stats (Summary)
-  let statsQuery = supabase.from("sales_logs").select(`qty_sold, selling_units (price)`);
+  // UPDATED: Now fetching 'price_at_sale' to calculate accurate revenue
+  let statsQuery = supabase
+    .from("sales_logs")
+    .select(`qty_sold, price_at_sale, selling_units (price)`);
+    
   statsQuery = applyDateFilters(statsQuery);
 
   // Query B: Table Data (Paginated)
+  // UPDATED: Added 'price_at_sale' to selection
   let tableQuery = supabase
     .from("sales_logs")
     .select(
@@ -56,6 +61,7 @@ export default async function AdminSalesPage({
       id,
       created_at,
       qty_sold,
+      price_at_sale,
       selling_units (name, price, products (name)),
       profiles (full_name)
     `,
@@ -76,9 +82,13 @@ export default async function AdminSalesPage({
   // --- 3. CALCULATIONS ---
   const totalRevenue =
     allStatsData?.reduce((acc, curr: any) => {
-      return acc + curr.qty_sold * (curr.selling_units?.price || 0);
+      // NEW LOGIC: Use snapshot price if available, fallback to current master price
+      const actualPrice = curr.price_at_sale ?? curr.selling_units?.price ?? 0;
+      return acc + (curr.qty_sold * actualPrice);
     }, 0) || 0;
+
   const totalTrx = allStatsData?.length || 0;
+  
   const totalItems =
     allStatsData?.reduce((acc, curr: any) => acc + (curr.qty_sold || 0), 0) || 0;
 
@@ -95,10 +105,7 @@ export default async function AdminSalesPage({
           </p>
         </div>
         
-        {/* Action Group: Filter & Export 
-            FIX: 'flex-row' forces them to be side-by-side (inline). 
-            'items-center' aligns them vertically.
-        */}
+        {/* Action Group: Filter & Export */}
         <div className="flex flex-row items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0">
           <DateRangeFilter />
           <ExportButton startDate={startDate} endDate={endDate} />
@@ -164,45 +171,51 @@ export default async function AdminSalesPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sales?.map((trx: any) => (
-                <TableRow key={trx.id} className="border-b hover:bg-slate-50">
-                  
-                  {/* Time */}
-                  <TableCell className="pl-4 py-3 align-top whitespace-nowrap">
-                    <div className="font-medium text-sm">
-                      {format(new Date(trx.created_at), "d MMM", { locale: id })}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {format(new Date(trx.created_at), "HH:mm", { locale: id })}
-                    </div>
-                  </TableCell>
+              {sales?.map((trx: any) => {
+                // NEW LOGIC: Calculate row total using snapshot price
+                const effectivePrice = trx.price_at_sale ?? trx.selling_units?.price ?? 0;
+                const rowTotal = (trx.qty_sold || 0) * effectivePrice;
 
-                  {/* Menu */}
-                  <TableCell className="py-3 align-top">
-                    <div className="text-sm font-medium min-w-[120px]">
-                      {trx.selling_units?.name || "Deleted"}
-                    </div>
-                    <div className="md:hidden text-[10px] text-muted-foreground mt-0.5">
-                      {trx.profiles?.full_name?.split(" ")[0]}
-                    </div>
-                  </TableCell>
+                return (
+                  <TableRow key={trx.id} className="border-b hover:bg-slate-50">
+                    
+                    {/* Time */}
+                    <TableCell className="pl-4 py-3 align-top whitespace-nowrap">
+                      <div className="font-medium text-sm">
+                        {format(new Date(trx.created_at), "d MMM", { locale: id })}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(trx.created_at), "HH:mm", { locale: id })}
+                      </div>
+                    </TableCell>
 
-                  {/* Kasir (Desktop) */}
-                  <TableCell className="hidden md:table-cell py-3 align-top whitespace-nowrap text-sm">
-                    {trx.profiles?.full_name}
-                  </TableCell>
+                    {/* Menu */}
+                    <TableCell className="py-3 align-top">
+                      <div className="text-sm font-medium min-w-[120px]">
+                        {trx.selling_units?.name || "Deleted"}
+                      </div>
+                      <div className="md:hidden text-[10px] text-muted-foreground mt-0.5">
+                        {trx.profiles?.full_name?.split(" ")[0]}
+                      </div>
+                    </TableCell>
 
-                  {/* Qty */}
-                  <TableCell className="text-center py-3 align-top font-bold text-sm whitespace-nowrap">
-                    {trx.qty_sold}
-                  </TableCell>
+                    {/* Kasir (Desktop) */}
+                    <TableCell className="hidden md:table-cell py-3 align-top whitespace-nowrap text-sm">
+                      {trx.profiles?.full_name}
+                    </TableCell>
 
-                  {/* Total */}
-                  <TableCell className="text-right pr-4 py-3 align-top font-bold text-emerald-700 whitespace-nowrap text-sm">
-                    Rp {((trx.qty_sold || 0) * (trx.selling_units?.price || 0)).toLocaleString("id-ID")}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    {/* Qty */}
+                    <TableCell className="text-center py-3 align-top font-bold text-sm whitespace-nowrap">
+                      {trx.qty_sold}
+                    </TableCell>
+
+                    {/* Total */}
+                    <TableCell className="text-right pr-4 py-3 align-top font-bold text-emerald-700 whitespace-nowrap text-sm">
+                      Rp {rowTotal.toLocaleString("id-ID")}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
 
               {sales?.length === 0 && (
                 <TableRow>

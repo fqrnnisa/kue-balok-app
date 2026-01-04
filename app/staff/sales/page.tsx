@@ -34,9 +34,10 @@ export default function SalesPage() {
 
   const fetchData = useCallback(async () => {
     try {
+      // Note: fetching image_url from products relation
       const { data } = await supabase
         .from('selling_units')
-        .select(`*, products (name, stock_qty)`) 
+        .select(`*, products (name, stock_qty, image_url)`) 
         .order('name');
       
       if (data) setMenuItems(data);
@@ -93,7 +94,11 @@ export default function SalesPage() {
         cart.map(item => ({ 
           selling_unit_id: item.id, 
           qty_sold: item.qty, 
-          created_by: user.id 
+          created_by: user.id,
+          // --- NEW LOGIC: SNAPSHOT PRICE ---
+          // Stores the price at the exact moment of sale
+          price_at_sale: item.price 
+          // ---------------------------------
         }))
       );
       if (error) throw error;
@@ -140,23 +145,26 @@ export default function SalesPage() {
         
         {/* MENU ITEMS SCROLL AREA */}
         <ScrollArea className="flex-1 max-h-full pb-32 px-4 lg:px-6">
-          {/* FIX GRID HERE: 
-              - sm:grid-cols-2 (Tablets)
-              - lg:grid-cols-3 (Small Laptops)
-              - xl:grid-cols-4 (Large Screens) 
-              This prevents the cards from being too wide or too squashed.
-          */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 pb-40  ">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 pb-40">
             {filteredItems.map(item => (
               <Card 
                 key={item.id} 
                 onClick={() => addToCart(item)}
-                className="group relative  w-full cursor-pointer hover:border-primary-500/50 hover:shadow-md transition-all duration-200 border-transparent hover:border-l-primary-500 bg-white overflow-hidden border"
+                className="group relative w-full cursor-pointer hover:border-primary-500/50 hover:shadow-md transition-all duration-200 border-transparent hover:border-l-primary-500 bg-white overflow-hidden border"
               >
                 <div className="p-4 flex flex-row items-start gap-4 h-full">
-                  {/* Icon Box */}
-                  <div className="h-12 w-12 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600 font-bold text-lg shrink-0 border border-primary-100 group-hover:bg-primary-100 transition-colors">
-                    {item.name.charAt(0)}
+                  
+                  {/* --- Icon Box / Image --- */}
+                  <div className="h-16 w-16 rounded-lg bg-primary-50 flex items-center justify-center text-primary-600 font-bold text-lg shrink-0 border border-primary-100 group-hover:bg-primary-100 transition-colors overflow-hidden">
+                    {item.products?.image_url ? (
+                      <img 
+                        src={item.products.image_url} 
+                        alt={item.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{item.name.charAt(0)}</span>
+                    )}
                   </div>
                   
                   {/* Content */}
