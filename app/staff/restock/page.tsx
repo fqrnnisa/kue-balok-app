@@ -1,85 +1,72 @@
-"use client";
+import { createClient } from "@/lib/supabase/server";
+import { submitRestock } from "@/app/actions/productions";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/supabase";
-import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowDownToLine } from "lucide-react";
+export default async function RestockPage() {
+  const supabase = await createClient();
+  
+  // Ambil daftar bahan baku
+  const { data: ingredients } = await supabase
+    .from("ingredients")
+    .select("id, name, unit, stock_qty")
+    .eq("is_active", true)
+    .order("name");
 
-export default function RestockPage() {
-  const supabase = createClient();
-  const [ingredients, setIngredients] = useState<any[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [selectedId, setSelectedId] = useState("");
-  const [qty, setQty] = useState("");
-
-  useEffect(() => {
-    supabase.from('ingredients').select('*').order('name').then(({data}) => {
-      if(data) setIngredients(data);
-    });
-  }, []);
-
-  const handleRestock = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedId || !qty) return toast.error("Data tidak lengkap");
-    setSubmitting(true);
-
-    try {
-      const current = ingredients.find(i => i.id === selectedId);
-      const newStock = (current?.stock_qty || 0) + parseFloat(qty);
-      
-      const { error } = await supabase.from('ingredients').update({ stock_qty: newStock }).eq('id', selectedId);
-      if (error) throw error;
-
-      toast.success("Stok ditambahkan!");
-      setQty(""); setSelectedId("");
-      
-      // Refresh local state to avoid stale data visual
-      setIngredients(prev => prev.map(i => i.id === selectedId ? {...i, stock_qty: newStock} : i));
-    } catch (e: any) { toast.error(e.message); } 
-    finally { setSubmitting(false); }
-  };
+  // --- FIX: Wrapper Function ---
+  // Fungsi ini membungkus server action agar tipe return-nya menjadi 'void' (Promise<void>)
+  // sehingga sesuai dengan standar TypeScript untuk properti <form action={...}>
+  async function handleRestockSubmit(formData: FormData) {
+    "use server";
+    await submitRestock(formData);
+  }
 
   return (
-    <div className="max-w-xl mx-auto p-4 lg:p-8 space-y-6">
+    <div className="max-w-2xl mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Stok Masuk</h1>
-        <p className="text-muted-foreground">Input bahan baku yang baru dibeli.</p>
+        <h1 className="text-2xl font-bold text-slate-800">Restock Bahan Baku</h1>
+        <p className="text-slate-500">Catat pembelian atau penambahan stok bahan baku baru.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Terima Barang</CardTitle>
-          <CardDescription>Stok gudang akan bertambah sesuai input.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleRestock} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Pilih Bahan</Label>
-              <Select onValueChange={setSelectedId} value={selectedId}>
-                <SelectTrigger><SelectValue placeholder="Pilih item..." /></SelectTrigger>
-                <SelectContent>
-                  {ingredients.map(i => (
-                    <SelectItem key={i.id} value={i.id}>{i.name} (Stok: {i.stock_qty} {i.unit})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Jumlah Masuk</Label>
-              <Input type="number" step="0.1" placeholder="0.0" value={qty} onChange={e => setQty(e.target.value)} />
-            </div>
-            <Button className="w-full" disabled={submitting}>
-              {submitting ? <Loader2 className="mr-2 animate-spin" /> : <ArrowDownToLine className="mr-2 w-4 h-4" />}
-              Simpan
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <div className="bg-white shadow-sm rounded-lg border border-slate-200 p-6">
+        {/* Update action ke wrapper function */}
+        <form action={handleRestockSubmit} className="space-y-4">
+          
+          {/* Pilih Bahan */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Bahan Baku</label>
+            <select name="ingredient_id" className="w-full border-slate-300 rounded-md shadow-sm p-2 border" required>
+              <option value="">-- Pilih Bahan --</option>
+              {ingredients?.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} (Sisa: {item.stock_qty} {item.unit})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Input Jumlah */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Jumlah Masuk</label>
+            <input 
+              type="number" 
+              name="qty" 
+              step="0.01" 
+              required 
+              className="w-full border-slate-300 rounded-md shadow-sm p-2 border"
+              placeholder="0.00"
+            />
+          </div>
+
+          {/* Catatan */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Catatan / Supplier</label>
+            <textarea name="notes" rows={2} className="w-full border-slate-300 rounded-md shadow-sm p-2 border"></textarea>
+          </div>
+
+          <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-md transition">
+            Simpan Stok Masuk
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
