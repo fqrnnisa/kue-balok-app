@@ -17,12 +17,27 @@ import {
   CardDescription
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TransactionFilter } from "@/components/sales/inventory-filters"; 
 
-export default async function InventoryReportPage() {
+// Tipe props harus didefinisikan sebagai Promise untuk searchParams di Next.js 15
+interface InventoryPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function InventoryReportPage(props: InventoryPageProps) {
+  // 1. AWAIT searchParams terlebih dahulu
+  const searchParams = await props.searchParams;
+  
   const supabase = await createClient();
 
-  // Ambil Data Logs join Ingredients
-  const { data: logs } = await supabase
+  // 2. Ambil nilai filter (sekarang aman karena sudah di-await)
+  const filterType = typeof searchParams.type === 'string' ? searchParams.type : null;
+
+  // Debugging: Cek di terminal server apakah value masuk
+  console.log("Filter yang diterima:", filterType); 
+
+  // 3. Bangun query dasar
+  let query = supabase
     .from("ingredient_logs")
     .select(`
       *,
@@ -31,13 +46,27 @@ export default async function InventoryReportPage() {
     `)
     .order("created_at", { ascending: false });
 
+  // 4. Terapkan filter
+  // Pastikan logic ini benar. Cek apakah di database nilainya persis "RESTOCK" atau "USAGE"
+  if (filterType && filterType !== 'ALL') {
+    query = query.eq('action_type', filterType);
+  }
+
+  const { data: logs, error } = await query;
+
+  if (error) {
+    console.error("Supabase Error:", error);
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Laporan Mutasi Stok</h1>
           <p className="text-muted-foreground">Riwayat pergerakan bahan baku (Masuk/Keluar).</p>
         </div>
+        
+        <TransactionFilter />
       </div>
 
       <Card>
@@ -91,8 +120,10 @@ export default async function InventoryReportPage() {
               
               {(!logs || logs.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Belum ada data transaksi.
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    {filterType 
+                      ? `Tidak ada data untuk filter "${filterType}".` 
+                      : "Belum ada data transaksi."}
                   </TableCell>
                 </TableRow>
               )}
