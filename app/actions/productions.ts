@@ -27,7 +27,7 @@ export async function submitRestock(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/staff/report/inventory");
+  revalidatePath("/staff/input");
   revalidatePath("/staff/restock");
   return { success: true };
 }

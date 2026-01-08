@@ -13,7 +13,8 @@ import { id } from "date-fns/locale";
 import { Banknote, ShoppingCart, Archive } from "lucide-react";
 import { DateRangeFilter } from "@/components/sales/date-range-filters";
 import { PaginationControls } from "@/components/sales/paggination-controls";
-import { ExportButton } from "@/components/sales/export-button"; 
+import { ExportButton } from "@/components/sales/export-button";
+import { BestSellerChart } from "@/components/sales/best-seller-chart"; // Import Chart
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,7 +24,7 @@ type SearchParams = { [key: string]: string | string[] | undefined };
 export default async function AdminSalesPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>; // Updated to Promise for Next.js 15+ compat if needed, otherwise standard
 }) {
   const supabase = await createClient();
 
@@ -44,16 +45,15 @@ export default async function AdminSalesPage({
     return query;
   };
 
-  // Query A: Stats (Summary)
-  // UPDATED: Now fetching 'price_at_sale' to calculate accurate revenue
+  // Query A: Stats & Best Seller Calculation
+  // UPDATED: Added 'selling_units (name, price)' to get names for the chart
   let statsQuery = supabase
     .from("sales_logs")
-    .select(`qty_sold, price_at_sale, selling_units (price)`);
+    .select(`qty_sold, price_at_sale, selling_units (name, price)`);
     
   statsQuery = applyDateFilters(statsQuery);
 
   // Query B: Table Data (Paginated)
-  // UPDATED: Added 'price_at_sale' to selection
   let tableQuery = supabase
     .from("sales_logs")
     .select(
@@ -80,9 +80,10 @@ export default async function AdminSalesPage({
   if (error) return <div className="p-4 text-red-500">Error loading data.</div>;
 
   // --- 3. CALCULATIONS ---
+  
+  // A. Totals
   const totalRevenue =
     allStatsData?.reduce((acc, curr: any) => {
-      // NEW LOGIC: Use snapshot price if available, fallback to current master price
       const actualPrice = curr.price_at_sale ?? curr.selling_units?.price ?? 0;
       return acc + (curr.qty_sold * actualPrice);
     }, 0) || 0;
@@ -91,6 +92,24 @@ export default async function AdminSalesPage({
   
   const totalItems =
     allStatsData?.reduce((acc, curr: any) => acc + (curr.qty_sold || 0), 0) || 0;
+
+  // B. Best Seller Logic (Aggregation)
+  const productSalesMap = new Map<string, number>();
+
+  allStatsData?.forEach((log: any) => {
+    const productName = log.selling_units?.name || "Unknown Product";
+    const qty = log.qty_sold || 0;
+    
+    // Sum qty per product name
+    const currentQty = productSalesMap.get(productName) || 0;
+    productSalesMap.set(productName, currentQty + qty);
+  });
+
+  // Convert Map to Array, Sort Descending, Take Top 10
+  const bestSellerData = Array.from(productSalesMap.entries())
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
 
   return (
     <div className="space-y-6 pb-24 w-full max-w-[100vw]">
@@ -150,7 +169,12 @@ export default async function AdminSalesPage({
         </Card>
       </div>
 
-      {/* 3. TABLE SECTION */}
+      {/* 3. CHART SECTION (NEW) */}
+      <div className="grid grid-cols-1">
+        <BestSellerChart data={bestSellerData} />
+      </div>
+
+      {/* 4. TABLE SECTION */}
       <Card className="w-full overflow-hidden">
         <CardHeader className="px-4 py-4 border-b flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Daftar Transaksi</CardTitle>
@@ -172,14 +196,11 @@ export default async function AdminSalesPage({
             </TableHeader>
             <TableBody>
               {sales?.map((trx: any) => {
-                // NEW LOGIC: Calculate row total using snapshot price
                 const effectivePrice = trx.price_at_sale ?? trx.selling_units?.price ?? 0;
                 const rowTotal = (trx.qty_sold || 0) * effectivePrice;
 
                 return (
                   <TableRow key={trx.id} className="border-b hover:bg-slate-50">
-                    
-                    {/* Time */}
                     <TableCell className="pl-4 py-3 align-top whitespace-nowrap">
                       <div className="font-medium text-sm">
                         {format(new Date(trx.created_at), "d MMM", { locale: id })}
@@ -189,7 +210,6 @@ export default async function AdminSalesPage({
                       </div>
                     </TableCell>
 
-                    {/* Menu */}
                     <TableCell className="py-3 align-top">
                       <div className="text-sm font-medium min-w-[120px]">
                         {trx.selling_units?.name || "Deleted"}
@@ -199,17 +219,14 @@ export default async function AdminSalesPage({
                       </div>
                     </TableCell>
 
-                    {/* Kasir (Desktop) */}
                     <TableCell className="hidden md:table-cell py-3 align-top whitespace-nowrap text-sm">
                       {trx.profiles?.full_name}
                     </TableCell>
 
-                    {/* Qty */}
                     <TableCell className="text-center py-3 align-top font-bold text-sm whitespace-nowrap">
                       {trx.qty_sold}
                     </TableCell>
 
-                    {/* Total */}
                     <TableCell className="text-right pr-4 py-3 align-top font-bold text-emerald-700 whitespace-nowrap text-sm">
                       Rp {rowTotal.toLocaleString("id-ID")}
                     </TableCell>

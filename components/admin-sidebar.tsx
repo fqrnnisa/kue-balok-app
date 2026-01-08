@@ -9,7 +9,8 @@ import {
   Users, 
   LogOut,
   ChefHat,
-  Menu
+  Menu,
+  ClipboardList // Added icon for the report
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -34,6 +35,11 @@ const menuItems = [
     title: "Stok Bahan (Gudang)", 
     href: "/admin/inventory", 
     icon: Package 
+  },
+  { 
+    title: "Laporan Mutasi Stok", 
+    href: "/admin/report/inventory", 
+    icon: ClipboardList 
   },
   { 
     title: "Produk & Resep", 
@@ -86,7 +92,7 @@ export function AdminSidebar() {
       {/* Header Sidebar */}
       <div className="flex h-16 items-center border-b px-6 bg-slate-950 text-white">
         <span className="text-lg font-bold tracking-tight flex items-center gap-2">
-           👨‍🍳 Mang Iyan Admin
+           📦 Mang Iyan Admin
         </span>
       </div>
 
