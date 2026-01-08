@@ -27,7 +27,7 @@ export async function submitRestock(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/staff/input");
+  revalidatePath("/staff/restock");
   revalidatePath("/staff/restock");
   return { success: true };
 }
@@ -79,6 +79,6 @@ export async function submitProduction(formData: FormData) {
 
   if (logError) return { error: logError.message };
 
-  revalidatePath("/staff/report/inventory");
-  redirect("/staff/report/inventory");
+  revalidatePath("/staff/input");
+  redirect("/staff/input");
 }

@@ -34,10 +34,13 @@ export default function SalesPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Note: fetching image_url from products relation
+      // UPDATED QUERY:
+      // 1. Used 'products!inner' to perform an INNER JOIN (required for filtering parent rows based on child columns).
+      // 2. Added .eq('products.is_active', true) to filter active products only.
       const { data } = await supabase
         .from('selling_units')
-        .select(`*, products (name, stock_qty, image_url)`) 
+        .select(`*, products!inner (name, stock_qty, image_url, is_active)`) 
+        .eq('products.is_active', true)
         .order('name');
       
       if (data) setMenuItems(data);
@@ -95,10 +98,7 @@ export default function SalesPage() {
           selling_unit_id: item.id, 
           qty_sold: item.qty, 
           created_by: user.id,
-          // --- NEW LOGIC: SNAPSHOT PRICE ---
-          // Stores the price at the exact moment of sale
           price_at_sale: item.price 
-          // ---------------------------------
         }))
       );
       if (error) throw error;
