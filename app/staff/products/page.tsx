@@ -121,7 +121,7 @@ export default function ProductsManagePage() {
         .insert({ product_id: prod.id, name: newName, price: parseFloat(newPrice), qty_content: 1 });
       if(se) throw se;
 
-      toast.success("Produk berhasil dibuat"); 
+      toast.success("Produk berhasil ditambahkan"); 
       
       setOpen(false); 
       fetch(); 

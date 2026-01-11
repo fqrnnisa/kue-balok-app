@@ -34,7 +34,7 @@ export default async function ProductionInputPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Input Produksi</h1>
         <p className="text-muted-foreground">
-          Catat hasil produksi harian. Stok bahan akan otomatis terpotong.
+          Catat hasil produksi harian disini.
         </p>
       </div>
 
@@ -68,7 +68,7 @@ export default async function ProductionInputPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Jumlah Batch */}
               <div className="space-y-2">
-                <Label htmlFor="batch_qty">Jml Batch (Adonan)</Label>
+                <Label htmlFor="batch_qty">Jumlah Batch (Adonan)</Label>
                 <Input 
                   id="batch_qty"
                   type="number" 
@@ -78,9 +78,7 @@ export default async function ProductionInputPage() {
                   required 
                   placeholder="Contoh: 1.5"
                 />
-                <p className="text-[0.8rem] text-muted-foreground">
-                  Dikali resep per batch.
-                </p>
+
               </div>
 
               {/* Hasil Jadi */}
@@ -103,7 +101,7 @@ export default async function ProductionInputPage() {
                 id="notes"
                 name="notes" 
                 rows={3} 
-                placeholder="Ada kejadian khusus saat produksi?" 
+                placeholder="Catatan khusus input produksi." 
               />
             </div>
 

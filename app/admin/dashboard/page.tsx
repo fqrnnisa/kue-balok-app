@@ -189,7 +189,7 @@ export default async function AdminDashboard() {
 
         <Card className="col-span-3 shadow-sm flex flex-col">
           <CardHeader>
-            <CardTitle>Performa QA u</CardTitle>
+            <CardTitle>Performa Karyawan</CardTitle>
             <p className="text-xs text-muted-foreground">
               Efisiensi 5 Batch Terakhir (Target vs Aktual)
             </p>

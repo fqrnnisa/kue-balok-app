@@ -63,7 +63,7 @@ export default async function InventoryReportPage(props: InventoryPageProps) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Laporan Mutasi Stok</h1>
-          <p className="text-muted-foreground">Riwayat pergerakan bahan baku (Masuk/Keluar).</p>
+          <p className="text-muted-foreground">Riwayat stok masuk & keluar bahan baku.</p>
         </div>
         
         <TransactionFilter />
@@ -72,7 +72,7 @@ export default async function InventoryReportPage(props: InventoryPageProps) {
       <Card>
         <CardHeader>
           <CardTitle>Riwayat Transaksi</CardTitle>
-          <CardDescription>Semua aktivitas stok tercatat di sini.</CardDescription>
+          <CardDescription>Semua aktivitas stok tercatat dibawah ini.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

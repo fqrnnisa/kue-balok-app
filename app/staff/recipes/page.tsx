@@ -161,7 +161,7 @@ export default function RecipeManagePage() {
               </Select>
               {!selectedProd && (
                 <p className="text-sm text-muted-foreground mt-4 italic">
-                  Silakan pilih produk untuk mulai mengedit resep dan target.
+                  Pilih produk untuk mulai mengedit resep dan target.
                 </p>
               )}
             </CardContent>

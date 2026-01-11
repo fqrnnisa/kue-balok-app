@@ -52,7 +52,7 @@ const menuItems = [
     icon: ShoppingCart 
   },
   { 
-    title: "Manajemen Staff", 
+    title: "Manajemen Pengguna", 
     href: "/admin/users", 
     icon: Users 
   },
@@ -80,7 +80,7 @@ export function AdminSidebar() {
       success: () => {
         router.push("/");
         router.refresh(); // Refresh agar middleware mengenali sesi sudah habis
-        return 'Sampai jumpa lagi, Juragan! 👋';
+        return 'Sampai jumpa lagi, Juragan!';
       },
       error: 'Gagal keluar, silakan coba lagi.',
     });
@@ -92,7 +92,7 @@ export function AdminSidebar() {
       {/* Header Sidebar */}
       <div className="flex h-16 items-center border-b px-6 bg-slate-950 text-white">
         <span className="text-lg font-bold tracking-tight flex items-center gap-2">
-           📦 Mang Iyan Admin
+           Mang Iyan Admin
         </span>
       </div>
 

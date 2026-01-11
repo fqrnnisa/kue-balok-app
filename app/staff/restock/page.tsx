@@ -86,7 +86,7 @@ export default async function RestockPage() {
                 id="notes"
                 name="notes" 
                 rows={3} 
-                placeholder="Beli di mana? No nota?" 
+                placeholder="Catatan khusus stok masuk." 
               />
             </div>
 

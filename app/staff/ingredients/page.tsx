@@ -77,7 +77,7 @@ export default function IngredientsManagePage() {
     if(error) {
       toast.error("Gagal Menghapus: " + error.message);
     } else { 
-      toast.success("Bahan berhasil dihapus"); 
+      toast.success("Bahan dihapus"); 
       fetch(); 
     }
   };

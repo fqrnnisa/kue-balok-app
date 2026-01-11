@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
-  { title: "Kasir (POS)", href: "/staff/sales", icon: ShoppingBag },
+  { title: "Kasir", href: "/staff/sales", icon: ShoppingBag },
   { title: "Input Produksi", href: "/staff/input", icon: ChefHat },
   { title: "Stok Masuk", href: "/staff/restock", icon: ArrowDownToLine },
   { type: "separator", title: "Master Data" },
@@ -37,7 +37,7 @@ export function StaffSidebar() {
   const NavContent = () => (
     <div className="flex flex-col h-full bg-background text-sm font-medium">
       <div className="h-16 flex items-center px-6 border-b">
-        <span className="text-lg font-bold tracking-tight">Mang Iyan POS</span>
+        <span className="text-lg font-bold tracking-tight">Mang Iyan Staff</span>
       </div>
       <div className="flex-1 py-6 px-3 space-y-1">
         {menuItems.map((item, index) => {
